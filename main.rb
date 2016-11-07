@@ -17,4 +17,4 @@ while true
 	# puts result
 end
 
-# function {var bob := 2; print "hello";}
+# function test {var bob = (10 == 2); var hello = "hello"; print(hello + bob);}

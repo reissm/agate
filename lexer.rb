@@ -65,13 +65,27 @@ class Lexer
 		end
 	end
 
-	def integer
+	def number
 		result = ''
 		while @currentChar != nil and @currentChar.is_integer? do
 			result += @currentChar
 			advance()
 		end
-		return result.to_i
+
+		if @currentChar == '.'
+			result += @currentChar
+			advance()
+
+			while @currentChar != nil and @currentChar.is_integer? do
+				result += @currentChar
+				advance()
+			end
+			token = Token.new('REAL', result.to_f)
+		else
+			token = Token.new('INTEGER', result.to_i)
+		end
+
+		return token
 	end
 
 	def str
@@ -104,17 +118,55 @@ class Lexer
 				end
 
 				if @currentChar.is_integer? then
-					return Token.new(Keywords::INTEGER, integer())
+					return number()
 				end
 
 				if @currentChar == '"' then
 					return Token.new(Keywords::STRING, str())
 				end
 
-				if @currentChar == ':' and peek() == '=' then
+				if @currentChar == '=' and peek() != '=' then
+					advance()
+					return Token.new(Keywords::ASSIGN, '=')
+				end
+
+				if @currentChar == '=' and peek() == '=' then
 					advance()
 					advance()
-					return Token.new(Keywords::ASSIGN, ':=')
+					return Token.new(Keywords::EQ, '==')
+				end
+
+				if @currentChar == '!' and peek() != '=' then
+					advance()
+					return Token.new(Keywords::NOT, '!')
+				end
+
+				if @currentChar == '!' and peek() == '=' then
+					advance()
+					advance()
+					return Token.new(Keywords::DNEQ, '!=')
+				end
+
+				if @currentChar == '>' and peek() != '=' then
+					advance()
+					return Token.new(Keywords::GREATERT, '>')
+				end
+
+				if @currentChar == '<' and peek() != '=' then
+					advance()
+					return Token.new(Keywords::LESST, '<')
+				end
+
+				if @currentChar == '>' and peek() == '=' then
+					advance()
+					advance()
+					return Token.new(Keywords::GTOEQ, '>=')
+				end
+
+				if @currentChar == '<' and peek() == '=' then
+					advance()
+					advance()
+					return Token.new(Keywords::LTOEQ, '<=')
 				end
 
 				if @currentChar == ';' then
@@ -125,10 +177,6 @@ class Lexer
 				if @currentChar == '.' then
 					advance()
 					return Token.new(Keywords::DOT, '.')
-				end
-
-				if @currentChar.is_integer? then
-					return Token.new(Keywords::INTEGER, integer())
 				end
 
 				if @currentChar == '+' then
@@ -149,6 +197,11 @@ class Lexer
 				if @currentChar == '/' then
 					advance()
 					return Token.new(Keywords::DIV, '/')
+				end
+
+				if @currentChar == '%' then
+					advance()
+					return Token.new(Keywords::MOD, '%')
 				end
 
 				if @currentChar == '(' then

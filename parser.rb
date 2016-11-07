@@ -5,6 +5,8 @@ require_relative 'lexer.rb'
 # 	Parser
 #####
 
+## Precedence: http://docs.oracle.com/javase/tutorial/java/nutsandbolts/operators.html
+
 class AST
 end
 
@@ -33,12 +35,10 @@ class UnaryOp < AST
 end
 
 class Print < AST
-	attr_accessor :token
-	attr_accessor :value
+	attr_accessor :statement
 
-	def initialize(token)
-		@token = token
-		@value = token.value
+	def initialize(statement)
+		@statement = statement
 	end
 end
 
@@ -95,9 +95,11 @@ class Var < AST
 end
 
 class Block < AST
+	attr_accessor :name
 	attr_accessor :compoundStatement
 
-	def initialize(compoundStatement)
+	def initialize(name, compoundStatement)
+		@name = name
 		@compoundStatement = compoundStatement
 	end
 end
@@ -123,6 +125,7 @@ class Parser
 		if @currentToken.type == tokenType
 			@currentToken = @lexer.getNextToken()
 		else
+			puts "#{@currentToken.to_s}, #{tokenType}"
 			error()
 		end
 	end
@@ -144,12 +147,15 @@ class Parser
 		elsif token.type == Keywords::INTEGER
 			eat(Keywords::INTEGER)
 			return Num.new(token)
+		elsif token.type == Keywords::REAL
+			eat(Keywords::REAL)
+			return Num.new(token)
 		elsif token.type == Keywords::STRING
 			eat (Keywords::STRING)
 			return Str.new(token)
 		elsif token.type == Keywords::OPAREN
 			eat(Keywords::OPAREN)
-			node = expr()
+			node = equality()
 			eat(Keywords::CPAREN)
 			return node
 		else
@@ -161,12 +167,14 @@ class Parser
 	def term
 		node = factor()
 
-		while [Keywords::MULT, Keywords::DIV].include? @currentToken.type
+		while [Keywords::MULT, Keywords::DIV, Keywords::MOD].include? @currentToken.type
 			token = @currentToken
 			if token.type == Keywords::MULT
 				eat(Keywords::MULT)
 			elsif token.type == Keywords::DIV
 				eat(Keywords::DIV)
+			elsif token.type == Keywords::MOD
+				eat(Keywords::MOD)
 			end
 
 			node = BinOp.new(node, token, factor())
@@ -192,10 +200,49 @@ class Parser
 		return node
 	end
 
+	def relational
+		node = expr()
+
+		while [Keywords::GREATERT, Keywords::LESST, Keywords::GTOEQ, Keywords::LTOEQ].include? @currentToken.type
+			token = @currentToken
+			if token.type == Keywords::LESST
+				eat(Keywords::LESST)
+			elsif token.type == Keywords::GREATERT
+				eat(Keywords::GREATERT)
+			elsif token.type == Keywords::LTOEQ
+				eat(Keywords::LTOEQ)
+			elsif token.type == Keywords::GTOEQ
+				eat(Keywords::GTOEQ)
+			end
+
+			node = BinOp.new(node, token, expr())
+		end
+
+		return node
+	end
+
+	def equality
+		node = relational()
+
+		while [Keywords::EQ, Keywords::DNEQ].include? @currentToken.type
+			token = @currentToken
+			if token.type == Keywords::EQ
+				eat(Keywords::EQ)
+			elsif token.type == Keywords::DNEQ
+				eat(Keywords::DNEQ)
+			end
+
+			node = BinOp.new(node, token, relational())
+		end
+
+		return node
+	end
+
 	def print
 		eat(Keywords::PRINT)
-		node = Print.new(@currentToken)
-		eat(Keywords::STRING)
+		eat(Keywords::OPAREN)
+		node = Print.new(equality())
+		eat(Keywords::CPAREN)
 		return node
 	end
 
@@ -209,7 +256,7 @@ class Parser
 		left = variable()
 		token = @currentToken
 		eat(Keywords::ASSIGN)
-		right = expr()
+		right = equality()
 		node = Assign.new(left, token, right)
 		return node
 	end
@@ -249,10 +296,7 @@ class Parser
 	end
 
 	def compoundStatement
-		eat(Keywords::FUNCTION)
-		eat(Keywords::OCURLY)
 		nodes = statementList()
-		eat(Keywords::CCURLY)
 
 		root = Compound.new()
 
@@ -263,8 +307,13 @@ class Parser
 	end
 
 	def block
+		eat(Keywords::FUNCTION)
+		name = variable()
+		eat(Keywords::OCURLY)
 		compoundStatementNode = compoundStatement()
-		node = Block.new(compoundStatementNode)
+		eat(Keywords::CCURLY)
+
+		node = Block.new(name, compoundStatementNode)
 		return node
 	end
 

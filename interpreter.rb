@@ -20,7 +20,6 @@ class Interpreter < NodeVisitor
 
 	def initialize(parser)
 		@parser = parser
-		GLOBAL_SCOPE
 	end
 
 	def visit(node)
@@ -35,13 +34,32 @@ class Interpreter < NodeVisitor
 
 	def visit_BinOp(node)
 		if node.op.type == Keywords::PLUS
-			return visit(node.left) + visit(node.right)
+			if node.left.token.type == Keywords::STRING or node.right.token.type == Keywords::STRING or visit(node.left).is_a? String or visit(node.right).is_a? String
+				ret = "#{visit(node.left)}#{visit(node.right)}"
+			else
+				ret = visit(node.left) + visit(node.right)
+			end
+			return ret
 		elsif node.op.type == Keywords::MINUS
 			return visit(node.left) - visit(node.right)
 		elsif node.op.type == Keywords::MULT
 			return visit(node.left) * visit(node.right)
 		elsif node.op.type == Keywords::DIV
 			return visit(node.left) / visit(node.right)
+		elsif node.op.type == Keywords::MOD
+			return visit(node.left) % visit(node.right)
+		elsif node.op.type == Keywords::LESST
+			return visit(node.left) < visit(node.right)
+		elsif node.op.type == Keywords::GREATERT
+			return visit(node.left) > visit(node.right)
+		elsif node.op.type == Keywords::LTOEQ
+			return visit(node.left) <= visit(node.right)
+		elsif node.op.type == Keywords::GTOEQ
+			return visit(node.left) >= visit(node.right)
+		elsif node.op.type == Keywords::EQ
+			return visit(node.left) == visit(node.right)
+		elsif node.op.type == Keywords::DNEQ
+			return visit(node.left) != visit(node.right)
 		end	
 	end
 
@@ -52,14 +70,20 @@ class Interpreter < NodeVisitor
 			return +visit(node.expr)
 		elsif op == Keywords::MINUS
 			return -visit(node.expr)
+		elsif op == Keywords::NOT
+			return !visit(node.expr)
 		end
 	end
 
 	def visit_Print(node)
-		puts node.value
+		puts visit(node.statement)
 	end
 
 	def visit_Num(node)
+		return node.value
+	end
+
+	def visit_Str(node)
 		return node.value
 	end
 
@@ -85,12 +109,10 @@ class Interpreter < NodeVisitor
 		end
 	end
 
+	# TODO: remove visit when creating function calls
 	def visit_Block(node)
+		GLOBAL_SCOPE[node.name.value] = node.compoundStatement
 		visit(node.compoundStatement)
-	end
-
-	def visit_Str(node)
-		return node.value
 	end
 
 	def visit_NoOp(node)
